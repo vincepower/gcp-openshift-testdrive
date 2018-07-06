@@ -3,7 +3,7 @@ The version really matters when setting the RHEL repositories.
 
 ## Required images
 
-Four images are required for this to work.
+Four images are required for this to work. I used image families so I can iterate without changing this script.
 
 * ocp39-master
 * ocp39-infra
