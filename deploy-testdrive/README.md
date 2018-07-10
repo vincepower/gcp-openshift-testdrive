@@ -1,6 +1,6 @@
 # Deploying Test Drive on GCP
 
-The version really matters when setting the RHEL repositories.
+The scripts in this directory can be zipped up and uploaded to Orbitera as is.
 
 ## Required images
 
