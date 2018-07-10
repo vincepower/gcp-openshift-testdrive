@@ -21,10 +21,14 @@ The base image will:
 * Have two partitions
   - 500MB+ /boot
   - 40GB+ / (root)
+  * The script will add the data disk needed to configure docker storage
+
 
 ## Run the deployment
 
-```gcloud deployment-manager deployments create --template install.jinja <deployment_name>```
+```
+gcloud deployment-manager deployments create --template install.jinja <deployment_name>
+```
 
 This deployment takes 20 minutes and will install and configure a fresh install of OpenShift 3.9.31 and output the console URL, username, and password. It does not install persistent storage, logging, metrics, or the service catalog (persistent storage is are a requirement for these three)
 
@@ -39,7 +43,7 @@ For troubleshooting purposes, the deployment creates 6 files in the /tmp directo
 
 ### Output of the deployment
 ```
-Vincents-MacBook:deploy-testdrive vincentpower$ gcloud deployment-manager deployments create --template install.jinja ocptestdrive6
+$ gcloud deployment-manager deployments create --template install.jinja ocptestdrive6
 The fingerprint of the deployment is GjqruTycOImRGQWKuQP5iA==
 Waiting for create [operation-1531197245908-5709da3ec6420-79574f6e-05d7941f]...done.       
 Create operation operation-1531197245908-5709da3ec6420-79574f6e-05d7941f completed successfully.
@@ -103,7 +107,7 @@ openshift_logging_install_logging=false
 openshift_master_identity_providers=[{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider', 'filename': '/etc/origin/master/htpasswd'}]
 
 # This will change every deployment of a Test Drive
-openshift_master_default_subdomain=DEPLOYMENT.gcp.testdrive.openshift.com
+openshift_master_default_subdomain=apps.DEPLOYMENT.gcp.testdrive.openshift.com
 openshift_master_cluster_public_hostname=master.DEPLOYMENT.gcp.testdrive.openshift.com
 openshift_master_cluster_public_vip=MASTEREXTERNALIP
 
