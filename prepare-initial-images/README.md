@@ -20,7 +20,7 @@ The image has
 * Have two partitions
   - 500MB+ /boot
   - 40GB+ / (root is only 3.5GB in the image)
-* Need a data disk added and configured for docker storage
+* The script will add the data disk needed to configure docker storage
 
 
 ## Deploy instances
@@ -28,5 +28,7 @@ The image has
 This image will be used to finish all prep work between making an image and what will be used in the actual Test Drive, like docker-storage, sizing the disk, subscribing to RHSM, etc. If you use this deployment and look in root's home directory (/root), it should be a fairly quick process to finish the prep then make the two final images from this instance.
 
 To launch:
-```gcloud deployment-manager deployments create --template install.jinja <deployment_name>```
+```
+gcloud deployment-manager deployments create --template install.jinja <deployment_name>
+```
 
