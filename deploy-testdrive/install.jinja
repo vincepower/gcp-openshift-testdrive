@@ -1,0 +1,16 @@
+resources:
+- name: openshift
+  type: openshift.jinja
+  properties:
+    zone: us-central1-a
+    image-base: https://www.googleapis.com/compute/v1/projects/openshift-test-drive/global/images/family/ocp39-base
+    image-docker: https://www.googleapis.com/compute/v1/projects/openshift-test-drive/global/images/family/ocp39-docker
+    mtype: n1-standard-2
+
+outputs:
+- name: OpenShiftConsole
+  value: $(ref.openshift.OpenShiftConsole)
+- name: user
+  value: $(ref.openshift.user)
+- name: password
+  value: $(ref.openshift.password)

@@ -1,3 +1,7 @@
 imports:
 - path: testdrive.jinja
 
+outputs:
+  BaseHostCLI:
+    type: string
+

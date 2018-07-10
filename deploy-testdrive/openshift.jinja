@@ -1,0 +1,383 @@
+{% import 'helpers-common.jinja' as common %}
+
+{% set zonesplit = properties["zone"].split('-') %}
+{% set region = zonesplit[0] + "-" + zonesplit[1] %}
+
+{% set network = env["deployment"] + "-network" %}
+{% set subnet0 = env["deployment"] + "-subnet0" %}
+
+{% set vminfra = common.GenerateUniqueName( 'vm', env['deployment'], 'infra' ) %}
+{% set vmmaster = common.GenerateUniqueName( 'vm', env['deployment'], 'master' ) %}
+{% set vmnode1 = common.GenerateUniqueName( 'vm', env['deployment'], 'node1' ) %}
+{% set vmnode2 = common.GenerateUniqueName( 'vm', env['deployment'], 'node2' ) %}
+
+{% set diskinfra = common.GenerateUniqueName( 'disk-docker', env['deployment'], 'infra' ) %}
+{% set diskmaster = common.GenerateUniqueName( 'disk-docker', env['deployment'], 'master' ) %}
+{% set disknode1 = common.GenerateUniqueName( 'disk-docker', env['deployment'], 'node1' ) %}
+{% set disknode2 = common.GenerateUniqueName( 'disk-docker', env['deployment'], 'node2' ) %}
+
+{% set dnszone = 'gcp-testdrive-openshift-com' %}
+{% set configName = env["deployment"] + "-startup-config" %}
+{% set waiterName = env["deployment"] + "-startup-waiter" %}
+
+{% set dnsdeploymentpart = env["deployment"][-3:] %}
+
+resources:
+
+{# NETWORK #}
+
+- name: {{ network }}
+  type: compute.v1.network
+  properties:
+    autoCreateSubnetworks: false
+
+- name: {{ subnet0 }}
+  type: compute.v1.subnetwork
+  properties:
+    ipCidrRange: 10.124.0.0/24
+    network: $(ref.{{ network }}.selfLink)
+    region: {{ region }}
+
+{# NETWORK #}
+
+{# FIREWALL #}
+
+- name: {{ common.GenerateUniqueName( 'fw-rule', env['deployment'], 'ssh' ) }}
+  type: compute.v1.firewall
+  properties:
+    network: $(ref.{{ network }}.selfLink)
+    sourceRanges: [ "0.0.0.0/0" ]
+    allowed:
+    - IPProtocol: TCP
+      ports: [ "22" ]
+
+- name: {{ common.GenerateUniqueName( 'fw-rule', env['deployment'], 'infra' ) }}
+  type: compute.v1.firewall
+  properties:
+    network: $(ref.{{ network }}.selfLink)
+    sourceRanges: [ "0.0.0.0/0" ]
+    targetTags: [ "testdrive-infra" ]
+    allowed:
+    - IPProtocol: TCP
+      ports: [ "80", "443" ]
+
+- name: {{ common.GenerateUniqueName( 'fw-rule', env['deployment'], 'master' ) }}
+  type: compute.v1.firewall
+  properties:
+    network: $(ref.{{ network }}.selfLink)
+    sourceRanges: [ "0.0.0.0/0" ]
+    targetTags: [ "testdrive-master" ]
+    allowed:
+    - IPProtocol: TCP
+      ports: [ "80", "443" ]
+
+- name: {{ common.GenerateUniqueName( 'fw-rule', env['deployment'], 'default' ) }}
+  type: compute.v1.firewall
+  properties:
+    network: $(ref.{{ network }}.selfLink)
+    sourceRanges: [ "10.124.0.0/16" ]
+    allowed:
+    - IPProtocol: TCP
+      ports: [ "0-65535" ]
+    - IPProtocol: UDP
+      ports: [ "0-65535" ]
+    - IPProtocol: ICMP
+
+{# FIREWALL #}
+
+{# DOCKER DISKS #}
+
+- name: {{ diskmaster }}
+  type: compute.v1.disk
+  properties:
+    zone: {{ properties["zone"] }}
+    type: https://www.googleapis.com/compute/v1/projects/{{ env["project"] }}/zones/{{ properties["zone"] }}/diskTypes/pd-ssd
+    sourceImage: {{ properties["image-docker"] }}
+
+- name: {{ diskinfra }}
+  type: compute.v1.disk
+  properties:
+    zone: {{ properties["zone"] }}
+    type: https://www.googleapis.com/compute/v1/projects/{{ env["project"] }}/zones/{{ properties["zone"] }}/diskTypes/pd-ssd
+    sourceImage: {{ properties["image-docker"] }}
+
+- name: {{ disknode1 }}
+  type: compute.v1.disk
+  properties:
+    zone: {{ properties["zone"] }}
+    type: https://www.googleapis.com/compute/v1/projects/{{ env["project"] }}/zones/{{ properties["zone"] }}/diskTypes/pd-ssd
+    sourceImage: {{ properties["image-docker"] }}
+
+- name: {{ disknode2 }}
+  type: compute.v1.disk
+  properties:
+    zone: {{ properties["zone"] }}
+    type: https://www.googleapis.com/compute/v1/projects/{{ env["project"] }}/zones/{{ properties["zone"] }}/diskTypes/pd-ssd
+    sourceImage: {{ properties["image-docker"] }}
+
+{# DOCKER DISKS #}
+
+{# INSTANCES #}
+
+- name: {{ vminfra }}
+  type: compute.v1.instance
+  properties:
+    zone: {{ properties["zone"] }}
+    machineType: zones/{{ properties["zone"] }}/machineTypes/{{ properties['mtype'] }}
+    disks:
+    - deviceName: boot
+      type: PERSISTENT
+      boot: true
+      autoDelete: true
+      initializeParams:
+        diskName: {{ common.GenerateUniqueName( 'disk', env['deployment'], 'infra' ) }}
+        sourceImage: {{ properties["image-base"] }}
+    - deviceName: infra-docker
+      type: PERSISTENT
+      autoDelete: true
+      source: $(ref.{{ diskinfra }}.selfLink)
+    networkInterfaces:
+    - network: $(ref.{{ network }}.selfLink)
+      subnetwork: $(ref.{{ subnet0 }}.selfLink)
+      networkIP: 10.124.0.7
+      accessConfigs:
+      - name: External NAT
+        type: ONE_TO_ONE_NAT
+    tags:
+      items:
+        - 'testdrive-infra'
+    serviceAccounts:
+    - email: default
+      scopes:
+        - 'https://www.googleapis.com/auth/compute'
+        - 'https://www.googleapis.com/auth/devstorage.read_only'
+        - 'https://www.googleapis.com/auth/logging.write'
+        - 'https://www.googleapis.com/auth/monitoring.write'
+        - 'https://www.googleapis.com/auth/servicecontrol'
+        - 'https://www.googleapis.com/auth/service.management'
+        - 'https://www.googleapis.com/auth/trace.append'
+        - 'https://www.googleapis.com/auth/userinfo.email'
+
+- name: {{ vmnode1 }}
+  type: compute.v1.instance
+  properties:
+    zone: {{ properties["zone"] }}
+    machineType: zones/{{ properties["zone"] }}/machineTypes/{{ properties['mtype'] }}
+    disks:
+    - deviceName: boot
+      type: PERSISTENT
+      boot: true
+      autoDelete: true
+      initializeParams:
+        diskName: {{ common.GenerateUniqueName( 'disk', env['deployment'], 'node1' ) }}
+        sourceImage: {{ properties["image-base"] }}
+    - deviceName: node1-docker
+      type: PERSISTENT
+      autoDelete: true
+      source: $(ref.{{ disknode1 }}.selfLink)
+    networkInterfaces:
+    - network: $(ref.{{ network }}.selfLink)
+      subnetwork: $(ref.{{ subnet0 }}.selfLink)
+      networkIP: 10.124.0.8
+      accessConfigs:
+      - name: External NAT
+        type: ONE_TO_ONE_NAT
+    tags:
+      items:
+        - 'testdrive-node'
+    serviceAccounts:
+    - email: default
+      scopes:
+        - 'https://www.googleapis.com/auth/compute'
+        - 'https://www.googleapis.com/auth/devstorage.read_only'
+        - 'https://www.googleapis.com/auth/logging.write'
+        - 'https://www.googleapis.com/auth/monitoring.write'
+        - 'https://www.googleapis.com/auth/servicecontrol'
+        - 'https://www.googleapis.com/auth/service.management'
+        - 'https://www.googleapis.com/auth/trace.append'
+        - 'https://www.googleapis.com/auth/userinfo.email'
+
+- name: {{ vmnode2 }}
+  type: compute.v1.instance
+  properties:
+    zone: {{ properties["zone"] }}
+    machineType: zones/{{ properties["zone"] }}/machineTypes/{{ properties['mtype'] }}
+    disks:
+    - deviceName: boot
+      type: PERSISTENT
+      boot: true
+      autoDelete: true
+      initializeParams:
+        diskName: {{ common.GenerateUniqueName( 'disk', env['deployment'], 'node2' ) }}
+        sourceImage: {{ properties["image-base"] }}
+    - deviceName: node2-docker
+      type: PERSISTENT
+      autoDelete: true
+      source: $(ref.{{ disknode2 }}.selfLink)
+    networkInterfaces:
+    - network: $(ref.{{ network }}.selfLink)
+      subnetwork: $(ref.{{ subnet0 }}.selfLink)
+      networkIP: 10.124.0.9
+      accessConfigs:
+      - name: External NAT
+        type: ONE_TO_ONE_NAT
+    tags:
+      items:
+        - 'testdrive-node'
+    serviceAccounts:
+    - email: default
+      scopes:
+        - 'https://www.googleapis.com/auth/compute'
+        - 'https://www.googleapis.com/auth/devstorage.read_only'
+        - 'https://www.googleapis.com/auth/logging.write'
+        - 'https://www.googleapis.com/auth/monitoring.write'
+        - 'https://www.googleapis.com/auth/servicecontrol'
+        - 'https://www.googleapis.com/auth/service.management'
+        - 'https://www.googleapis.com/auth/trace.append'
+        - 'https://www.googleapis.com/auth/userinfo.email'
+
+- name: {{ vmmaster }}
+  type: compute.v1.instance
+  properties:
+    zone: {{ properties["zone"] }}
+    machineType: zones/{{ properties["zone"] }}/machineTypes/{{ properties['mtype'] }}
+    metadata:
+      items:
+      - key: randomString
+        value: $(ref.randomString.string)
+      - key: deploymentName
+        value: {{ env["deployment"] }}
+      - key: startup-script
+        value: |
+          #!/bin/bash
+          # Set some variables
+          echo "START VARS -- $(date)" >> /tmp/OCP-deploy-time
+          export masterIP=$(curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip")
+          echo "masterIP $masterIP" >> /tmp/OCP-deploy-time
+          export infraIP=$(ref.{{ vminfra }}.networkInterfaces[0].accessConfigs[0].natIP)
+          echo "infraIP $infraIP" >> /tmp/OCP-deploy-time
+          export randomString=$(curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/attributes/randomString)
+          export deploymentName=$(curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/attributes/deploymentName)
+          export randomDnsName=$randomString${deploymentName: -3:3}
+          echo "randomDnsName $randomDnsName" >> /tmp/OCP-deploy-time
+          export dnszone=gcp-testdrive-openshift-com
+          echo "dnszone $dnszone" >> /tmp/OCP-deploy-time
+          # Update Ansible Hosts file with proper external names and IP
+          sed -i -e "s/DEPLOYMENTNAME/$randomDnsName/g" /etc/ansible/hosts
+          sed -i -e "s/MASTEREXTERNALIP/$masterIP/g" /etc/ansible/hosts
+          # Update DNS to have this deployment
+          echo "START DNS -- $(date)" >> /tmp/OCP-deploy-time
+          gcloud --project='openshift-test-drive' dns record-sets transaction start -z=$dnszone
+          gcloud --project='openshift-test-drive' dns record-sets transaction add -z=$dnszone --name="master.$randomDnsName.gcp.testdrive.openshift.com" --type=A --ttl=300 $masterIP
+          gcloud --project='openshift-test-drive' dns record-sets transaction add -z=$dnszone --name="*.apps.$randomDnsName.gcp.testdrive.openshift.com" --type=A --ttl=300 $infraIP 
+          gcloud --project='openshift-test-drive' dns record-sets transaction execute -z=$dnszone
+          # Deploy OpenShift
+          echo "START PREREQ -- $(date)" >> /tmp/OCP-deploy-time
+          ansible-playbook /usr/share/ansible/openshift-ansible/playbooks/prerequisites.yml >/tmp/prerequisites.stdout 2>/tmp/prerequisites.stderr
+          echo "START DEPLOY -- $(date)" >> /tmp/OCP-deploy-time
+          ansible-playbook /usr/share/ansible/openshift-ansible/playbooks/deploy_cluster.yml >/tmp/deploy_cluster.stdout 2>/tmp/deploy_cluter.stderr
+          echo "START ACCESS -- $(date)" >> /tmp/OCP-deploy-time
+          htpasswd -bc /etc/origin/master/htpasswd developer testdrive
+          oc adm policy add-cluster-role-to-user cluster-admin developer --config=/etc/origin/master/admin.kubeconfig
+          echo "END DEPLOY -- $(date)" >> /tmp/OCP-deploy-time
+          # Send that the config is finalized
+          gcloud beta runtime-config configs variables set success/success 'success' --config-name {{ configName }}
+          gcloud alpha deployment-manager runtime-configs variables set success/success 'success' --config-name {{ configName }} >> /tmp/OCP-deploy-time
+          echo "END SCRIPT -- $(date)" >> /tmp/OCP-deploy-time
+      - key: shutdown-script
+        value: |
+          #!/bin/bash
+          # Set some variables
+          echo "START VARS -- $(date)" >> /tmp/OCP-stop-time
+          export masterIP=$(curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip")
+          echo "masterIP $masterIP" >> /tmp/OCP-stop-time
+          export infraIP=$(ref.{{ vminfra }}.networkInterfaces[0].accessConfigs[0].natIP)
+          echo "infraIP $infraIP" >> /tmp/OCP-stop-time
+          export randomString=$(curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/attributes/randomString)
+          export deploymentName=$(curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/attributes/deploymentName)
+          export randomDnsName=$randomString${deploymentName: -3:3}
+          echo "randomDnsName $randomDnsName" >> /tmp/OCP-stop-time
+          export dnszone=gcp-testdrive-openshift-com
+          # Update DNS to remove this deployment
+          echo "START DNS -- $(date)" >> /tmp/OCP-stop-time
+          cd /tmp
+          gcloud --project='openshift-test-drive' dns record-sets transaction start -z=$dnszone
+          gcloud --project='openshift-test-drive' dns record-sets transaction remove -z=$dnszone --name="master.$randomDnsName.gcp.testdrive.openshift.com" --type=A --ttl=300 $masterIP
+          gcloud --project='openshift-test-drive' dns record-sets transaction remove -z=$dnszone --name="*.apps.$randomDnsName.gcp.testdrive.openshift.com" --type=A --ttl=300 $infraIP 
+          gcloud --project='openshift-test-drive' dns record-sets transaction execute -z=$dnszone >> /tmp/OCP-stop-time
+          echo "END SCRIPT -- $(date)" >> /tmp/OCP-stop-time
+          sleep 10
+    disks:
+    - deviceName: boot
+      type: PERSISTENT
+      boot: true
+      autoDelete: true
+      initializeParams:
+        diskName: {{ common.GenerateUniqueName( 'disk', env['deployment'], 'master' ) }}
+        sourceImage: {{ properties["image-base"] }}
+    - deviceName: master-docker
+      type: PERSISTENT
+      autoDelete: true
+      source: $(ref.{{ diskmaster }}.selfLink)
+    networkInterfaces:
+    - network: $(ref.{{ network }}.selfLink)
+      subnetwork: $(ref.{{ subnet0 }}.selfLink)
+      networkIP: 10.124.0.6
+      accessConfigs:
+      - name: External NAT
+        type: ONE_TO_ONE_NAT
+    tags:
+      items:
+        - 'testdrive-master'
+    serviceAccounts:
+    - email: default
+      scopes:
+        - 'https://www.googleapis.com/auth/cloud-platform'
+        - 'https://www.googleapis.com/auth/cloudruntimeconfig'
+        - 'https://www.googleapis.com/auth/compute'
+        - 'https://www.googleapis.com/auth/devstorage.read_only'
+        - 'https://www.googleapis.com/auth/logging.write'
+        - 'https://www.googleapis.com/auth/monitoring.write'
+        - 'https://www.googleapis.com/auth/service.management'
+        - 'https://www.googleapis.com/auth/servicecontrol'
+        - 'https://www.googleapis.com/auth/trace.append'
+        - 'https://www.googleapis.com/auth/userinfo.email'
+
+- name: {{ configName }}
+  type: runtimeconfig.v1beta1.config
+  properties:
+    config: {{ configName }}
+
+- name: {{ waiterName }}
+  type: runtimeconfig.v1beta1.waiter
+  metadata:
+    dependsOn:
+    - {{ vmmaster }}
+  properties:
+    parent: $(ref.{{ configName }}.name)
+    waiter: {{ waiterName }}
+    timeout: 1800s
+    success:
+      cardinality:
+        path: /success
+        number: 1
+    failure:
+      cardinality:
+        path: /failure
+        number: 1
+
+{# INSTANCES #}
+
+- name: randomString
+  type: helpers-random-string.py
+  properties:
+    length: 3
+
+outputs:
+- name: OpenShiftConsole
+  value: https://master.$(ref.randomString.string){{ dnsdeploymentpart }}.gcp.testdrive.openshift.com
+- name: user
+  value: developer
+- name: password
+  value: testdrive
+

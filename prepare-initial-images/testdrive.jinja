@@ -4,15 +4,10 @@
 {% set network = env["deployment"] + "-network" %}
 {% set subnet0 = env["deployment"] + "-subnet0" %}
 
-{% set vminfra = 'ocp39-infra' %}
-{% set vmmaster = 'ocp39-master' %}
-{% set vmnode1 = 'ocp39-node1' %}
-{% set vmnode2 = 'ocp39-node2' %}
+{% set vmbase = 'vm-' + env["deployment"] + '-base' %}
 
-{% set diskinfra = 'docker-ocp39-infra' %}
-{% set diskmaster = 'docker-ocp39-master' %}
-{% set disknode1 = 'docker-ocp39-node1' %}
-{% set disknode2 = 'docker-ocp39-node2' %}
+{% set diskbase = 'disk-' + env["deployment"] + '-docker' %}
+{% set diskdocker = 'disk-' + env["deployment"] + '-docker' %}
 
 {% set dnsdeploymentpart = env["deployment"][-3:] %}
 
@@ -28,7 +23,7 @@ resources:
 - name: {{ subnet0 }}
   type: compute.v1.subnetwork
   properties:
-    ipCidrRange: 10.128.0.0/24
+    ipCidrRange: 10.124.0.0/24
     network: $(ref.{{ network }}.selfLink)
     region: {{ region }}
 
@@ -45,22 +40,12 @@ resources:
     - IPProtocol: TCP
       ports: [ "22" ]
 
-- name: {{ 'fw-rule-' + env['deployment'] + '-infra' }}
+- name: {{ 'fw-rule-' + env['deployment'] + '-base' }}
   type: compute.v1.firewall
   properties:
     network: $(ref.{{ network }}.selfLink)
     sourceRanges: [ "0.0.0.0/0" ]
-    targetTags: [ "testdrive-infra" ]
-    allowed:
-    - IPProtocol: TCP
-      ports: [ "80", "443" ]
-
-- name: {{ 'fw-rule-' + env['deployment'] + '-master' }}
-  type: compute.v1.firewall
-  properties:
-    network: $(ref.{{ network }}.selfLink)
-    sourceRanges: [ "0.0.0.0/0" ]
-    targetTags: [ "testdrive-master" ]
+    targetTags: [ "testdrive-base" ]
     allowed:
     - IPProtocol: TCP
       ports: [ "80", "443" ]
@@ -69,7 +54,7 @@ resources:
   type: compute.v1.firewall
   properties:
     network: $(ref.{{ network }}.selfLink)
-    sourceRanges: [ "10.128.0.0/16" ]
+    sourceRanges: [ "10.124.0.0/16" ]
     allowed:
     - IPProtocol: TCP
       ports: [ "0-65535" ]
@@ -81,28 +66,7 @@ resources:
 
 {# DOCKER DISKS #}
 
-- name: {{ diskmaster }}
-  type: compute.v1.disk
-  properties:
-    zone: {{ properties["zone"] }}
-    sizeGb: 20
-    type: https://www.googleapis.com/compute/v1/projects/{{ env["project"] }}/zones/{{ properties["zone"] }}/diskTypes/pd-ssd
-
-- name: {{ diskinfra }}
-  type: compute.v1.disk
-  properties:
-    zone: {{ properties["zone"] }}
-    sizeGb: 20
-    type: https://www.googleapis.com/compute/v1/projects/{{ env["project"] }}/zones/{{ properties["zone"] }}/diskTypes/pd-ssd
-
-- name: {{ disknode1 }}
-  type: compute.v1.disk
-  properties:
-    zone: {{ properties["zone"] }}
-    sizeGb: 20
-    type: https://www.googleapis.com/compute/v1/projects/{{ env["project"] }}/zones/{{ properties["zone"] }}/diskTypes/pd-ssd
-
-- name: {{ disknode2 }}
+- name: {{ diskdocker }}
   type: compute.v1.disk
   properties:
     zone: {{ properties["zone"] }}
@@ -113,7 +77,7 @@ resources:
 
 {# INSTANCES #}
 
-- name: {{ vminfra }}
+- name: {{ vmbase }}
   type: compute.v1.instance
   properties:
     zone: {{ properties["zone"] }}
@@ -123,186 +87,44 @@ resources:
       - key: startup-script
         value: |
           #!/bin/bash
-          echo '10.128.0.6 {{ vmmaster }}.c.openshift-test-drive.internal {{ vmmaster }}' >> /etc/hosts
-          echo '10.128.0.8 {{ vmnode1 }}.c.openshift-test-drive.internal {{ vmnode1 }}' >> /etc/hosts
-          echo '10.128.0.9 {{ vmnode2 }}.c.openshift-test-drive.internal {{ vmnode2 }}' >> /etc/hosts
+          gcloud -q compute disks resize --zone {{ properties["zone"] }} {{ diskbase }} --size 40
     disks:
     - deviceName: boot
       type: PERSISTENT
       boot: true
       autoDelete: true
       initializeParams:
-        diskName: {{ 'disk-' + env['deployment'] + '-infra' }}
+        diskName: {{ diskbase }}
         sourceImage: {{ properties["image-base"] }}
     - deviceName: infra-docker
       type: PERSISTENT
       autoDelete: true
-      source: $(ref.{{ diskinfra }}.selfLink)
+      source: $(ref.{{ diskdocker }}.selfLink)
     networkInterfaces:
     - network: $(ref.{{ network }}.selfLink)
       subnetwork: $(ref.{{ subnet0 }}.selfLink)
-      networkIP: 10.128.0.7
+      networkIP: 10.124.0.7
       accessConfigs:
       - name: External NAT
         type: ONE_TO_ONE_NAT
     tags:
       items:
-        - 'testdrive-infra'
+        - 'testdrive-base'
     serviceAccounts:
     - email: default
       scopes:
         - 'https://www.googleapis.com/auth/compute'
-        - 'https://www.googleapis.com/auth/servicecontrol'
-        - 'https://www.googleapis.com/auth/service.management'
+        - 'https://www.googleapis.com/auth/devstorage.read_only'
         - 'https://www.googleapis.com/auth/logging.write'
         - 'https://www.googleapis.com/auth/monitoring.write'
-        - 'https://www.googleapis.com/auth/trace.append'
-        - 'https://www.googleapis.com/auth/devstorage.read_only'
-        - 'https://www.googleapis.com/auth/userinfo.email'
-        - 'https://www.googleapis.com/auth/cloud-platform'
-
-- name: {{ vmmaster }}
-  type: compute.v1.instance
-  properties:
-    zone: {{ properties["zone"] }}
-    machineType: zones/{{ properties["zone"] }}/machineTypes/{{ properties['mtype'] }}
-    metadata:
-      items:
-      - key: startup-script
-        value: |
-          #!/bin/bash
-          echo '10.128.0.7 {{ vminfra }}.c.openshift-test-drive.internal {{ vminfra }}' >> /etc/hosts
-          echo '10.128.0.8 {{ vmnode1 }}.c.openshift-test-drive.internal {{ vmnode1 }}' >> /etc/hosts
-          echo '10.128.0.9 {{ vmnode2 }}.c.openshift-test-drive.internal {{ vmnode2 }}' >> /etc/hosts
-    disks:
-    - deviceName: boot
-      type: PERSISTENT
-      boot: true
-      autoDelete: true
-      initializeParams:
-        diskName: {{ 'disk-' + env['deployment'] + '-master' }}
-        sourceImage: {{ properties["image-base"] }}
-    - deviceName: master-docker
-      type: PERSISTENT
-      autoDelete: true
-      source: $(ref.{{ diskmaster }}.selfLink)
-    networkInterfaces:
-    - network: $(ref.{{ network }}.selfLink)
-      subnetwork: $(ref.{{ subnet0 }}.selfLink)
-      networkIP: 10.128.0.6
-      accessConfigs:
-      - name: External NAT
-        type: ONE_TO_ONE_NAT
-    tags:
-      items:
-        - 'testdrive-master'
-    serviceAccounts:
-    - email: default
-      scopes:
-        - 'https://www.googleapis.com/auth/cloudruntimeconfig'
-        - 'https://www.googleapis.com/auth/compute'
         - 'https://www.googleapis.com/auth/servicecontrol'
         - 'https://www.googleapis.com/auth/service.management'
-        - 'https://www.googleapis.com/auth/logging.write'
-        - 'https://www.googleapis.com/auth/monitoring.write'
         - 'https://www.googleapis.com/auth/trace.append'
-        - 'https://www.googleapis.com/auth/devstorage.read_only'
-        - 'https://www.googleapis.com/auth/userinfo.email'
-        - 'https://www.googleapis.com/auth/cloud-platform'
-
-- name: {{ vmnode1 }}
-  type: compute.v1.instance
-  properties:
-    zone: {{ properties["zone"] }}
-    machineType: zones/{{ properties["zone"] }}/machineTypes/{{ properties['mtype'] }}
-    metadata:
-      items:
-      - key: startup-script
-        value: |
-          #!/bin/bash
-          echo '10.128.0.6 {{ vmmaster }}.c.openshift-test-drive.internal {{ vmmaster }}' >> /etc/hosts
-          echo '10.128.0.7 {{ vminfra }}.c.openshift-test-drive.internal {{ vminfra }}' >> /etc/hosts
-          echo '10.128.0.9 {{ vmnode2 }}.c.openshift-test-drive.internal {{ vmnode2 }}' >> /etc/hosts
-    disks:
-    - deviceName: boot
-      type: PERSISTENT
-      boot: true
-      autoDelete: true
-      initializeParams:
-        diskName: {{ 'disk-' + env['deployment'] + '-node1' }}
-        sourceImage: {{ properties["image-base"] }}
-    - deviceName: node1-docker
-      type: PERSISTENT
-      autoDelete: true
-      source: $(ref.{{ disknode1 }}.selfLink)
-    networkInterfaces:
-    - network: $(ref.{{ network }}.selfLink)
-      subnetwork: $(ref.{{ subnet0 }}.selfLink)
-      networkIP: 10.128.0.8
-      accessConfigs:
-      - name: External NAT
-        type: ONE_TO_ONE_NAT
-    tags:
-      items:
-        - 'testdrive-node'
-    serviceAccounts:
-    - email: default
-      scopes:
-        - 'https://www.googleapis.com/auth/compute'
-        - 'https://www.googleapis.com/auth/servicecontrol'
-        - 'https://www.googleapis.com/auth/service.management'
-        - 'https://www.googleapis.com/auth/logging.write'
-        - 'https://www.googleapis.com/auth/monitoring.write'
-        - 'https://www.googleapis.com/auth/trace.append'
-        - 'https://www.googleapis.com/auth/devstorage.read_only'
-        - 'https://www.googleapis.com/auth/userinfo.email'
-
-- name: {{ vmnode2 }}
-  type: compute.v1.instance
-  properties:
-    zone: {{ properties["zone"] }}
-    machineType: zones/{{ properties["zone"] }}/machineTypes/{{ properties['mtype'] }}
-    metadata:
-      items:
-      - key: startup-script
-        value: |
-          #!/bin/bash
-          echo '10.128.0.6 {{ vmmaster }}.c.openshift-test-drive.internal {{ vmmaster }}' >> /etc/hosts
-          echo '10.128.0.7 {{ vminfra }}.c.openshift-test-drive.internal {{ vminfra }}' >> /etc/hosts
-          echo '10.128.0.8 {{ vmnode1 }}.c.openshift-test-drive.internal {{ vmnode1 }}' >> /etc/hosts
-    disks:
-    - deviceName: boot
-      type: PERSISTENT
-      boot: true
-      autoDelete: true
-      initializeParams:
-        diskName: {{ 'disk-' + env['deployment'] + '-node2' }}
-        sourceImage: {{ properties["image-base"] }}
-    - deviceName: node2-docker
-      type: PERSISTENT
-      autoDelete: true
-      source: $(ref.{{ disknode2 }}.selfLink)
-    networkInterfaces:
-    - network: $(ref.{{ network }}.selfLink)
-      subnetwork: $(ref.{{ subnet0 }}.selfLink)
-      networkIP: 10.128.0.9
-      accessConfigs:
-      - name: External NAT
-        type: ONE_TO_ONE_NAT
-    tags:
-      items:
-        - 'testdrive-node'
-    serviceAccounts:
-    - email: default
-      scopes:
-        - 'https://www.googleapis.com/auth/compute'
-        - 'https://www.googleapis.com/auth/servicecontrol'
-        - 'https://www.googleapis.com/auth/service.management'
-        - 'https://www.googleapis.com/auth/logging.write'
-        - 'https://www.googleapis.com/auth/monitoring.write'
-        - 'https://www.googleapis.com/auth/trace.append'
-        - 'https://www.googleapis.com/auth/devstorage.read_only'
         - 'https://www.googleapis.com/auth/userinfo.email'
 
 {# INSTANCES #}
+
+outputs:
+- name: BaseHostCLI
+  value: gcloud compute --project "openshift-test-drive" ssh --zone "us-central1-a" "{{ vmbase }}"
 

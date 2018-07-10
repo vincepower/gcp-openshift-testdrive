@@ -6,3 +6,6 @@ resources:
     image-base: https://www.googleapis.com/compute/v1/projects/openshift-test-drive/global/images/family/rhel7ocp3
     mtype: n1-standard-2
 
+outputs:
+- name: BaseHostCLI
+  value: $(ref.testdrive.BaseHostCLI)
