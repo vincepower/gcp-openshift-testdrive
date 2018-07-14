@@ -286,7 +286,8 @@ resources:
             ansible-playbook /usr/share/ansible/openshift-ansible/playbooks/deploy_cluster.yml >/tmp/deploy_cluster.stdout 2>/tmp/deploy_cluter.stderr
             echo "START ACCESS -- $(date)" >> /tmp/OCP-startup-time
             htpasswd -bc /etc/origin/master/htpasswd developer testdrive
-            oc adm policy add-cluster-role-to-user cluster-admin developer --config=/etc/origin/master/admin.kubeconfig echo "END DEPLOY -- $(date)" >> /tmp/OCP-startup-time
+            oc adm policy add-cluster-role-to-user cluster-admin developer --config=/etc/origin/master/admin.kubeconfig
+            echo "END DEPLOY -- $(date)" >> /tmp/OCP-startup-time
             # Send that the config is finalized
             gcloud beta runtime-config configs variables set success/success 'success' --config-name {{ configName }}
             gcloud alpha deployment-manager runtime-configs variables set success/success 'success' --config-name {{ configName }} >> /tmp/OCP-startup-time
