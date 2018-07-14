@@ -247,66 +247,72 @@ resources:
         value: $(ref.randomString.string)
       - key: deploymentName
         value: {{ env["deployment"] }}
+      - key: infraIP
+        value: $(ref.{{ vminfra }}.networkInterfaces[0].accessConfigs[0].natIP)
       - key: startup-script
         value: |
           #!/bin/bash
           # Set some variables
-          echo "START VARS -- $(date)" >> /tmp/OCP-deploy-time
+          echo "START VARS -- $(date)" >> /tmp/OCP-startup-time
           export masterIP=$(curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip")
-          echo "masterIP $masterIP" >> /tmp/OCP-deploy-time
-          export infraIP=$(ref.{{ vminfra }}.networkInterfaces[0].accessConfigs[0].natIP)
-          echo "infraIP $infraIP" >> /tmp/OCP-deploy-time
+          echo "masterIP $masterIP" >> /tmp/OCP-startup-time
+          export infraIP=$(curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/attributes/infraIP)
+          echo "infraIP $infraIP" >> /tmp/OCP-startup-time
           export randomString=$(curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/attributes/randomString)
           export deploymentName=$(curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/attributes/deploymentName)
           export randomDnsName=$randomString${deploymentName: -3:3}
-          echo "randomDnsName $randomDnsName" >> /tmp/OCP-deploy-time
+          echo "randomDnsName $randomDnsName" >> /tmp/OCP-startup-time
           export dnszone=gcp-testdrive-openshift-com
-          echo "dnszone $dnszone" >> /tmp/OCP-deploy-time
+          echo "dnszone $dnszone" >> /tmp/OCP-startup-time
           # Update Ansible Hosts file with proper external names and IP
           sed -i -e "s/DEPLOYMENTNAME/$randomDnsName/g" /etc/ansible/hosts
           sed -i -e "s/MASTEREXTERNALIP/$masterIP/g" /etc/ansible/hosts
           # Update DNS to have this deployment
-          echo "START DNS -- $(date)" >> /tmp/OCP-deploy-time
-          gcloud --project='openshift-test-drive' dns record-sets transaction start -z=$dnszone
-          gcloud --project='openshift-test-drive' dns record-sets transaction add -z=$dnszone --name="master.$randomDnsName.gcp.testdrive.openshift.com" --type=A --ttl=300 $masterIP
-          gcloud --project='openshift-test-drive' dns record-sets transaction add -z=$dnszone --name="*.apps.$randomDnsName.gcp.testdrive.openshift.com" --type=A --ttl=300 $infraIP 
-          gcloud --project='openshift-test-drive' dns record-sets transaction execute -z=$dnszone
-          # Deploy OpenShift
-          echo "START PREREQ -- $(date)" >> /tmp/OCP-deploy-time
-          ansible-playbook /usr/share/ansible/openshift-ansible/playbooks/prerequisites.yml >/tmp/prerequisites.stdout 2>/tmp/prerequisites.stderr
-          echo "START DEPLOY -- $(date)" >> /tmp/OCP-deploy-time
-          ansible-playbook /usr/share/ansible/openshift-ansible/playbooks/deploy_cluster.yml >/tmp/deploy_cluster.stdout 2>/tmp/deploy_cluter.stderr
-          echo "START ACCESS -- $(date)" >> /tmp/OCP-deploy-time
-          htpasswd -bc /etc/origin/master/htpasswd developer testdrive
-          oc adm policy add-cluster-role-to-user cluster-admin developer --config=/etc/origin/master/admin.kubeconfig
-          echo "END DEPLOY -- $(date)" >> /tmp/OCP-deploy-time
-          # Send that the config is finalized
-          gcloud beta runtime-config configs variables set success/success 'success' --config-name {{ configName }}
-          gcloud alpha deployment-manager runtime-configs variables set success/success 'success' --config-name {{ configName }} >> /tmp/OCP-deploy-time
-          echo "END SCRIPT -- $(date)" >> /tmp/OCP-deploy-time
+          echo "START DNS -- $(date)" >> /tmp/OCP-startup-time
+          gcloud dns record-sets transaction start -z=$dnszone
+          gcloud dns record-sets transaction add -z=$dnszone --name="master.$randomDnsName.gcp.testdrive.openshift.com" --type=A --ttl=300 $masterIP
+          gcloud dns record-sets transaction add -z=$dnszone --name="*.apps.$randomDnsName.gcp.testdrive.openshift.com" --type=A --ttl=300 $infraIP 
+          gcloud dns record-sets transaction execute -z=$dnszone
+          if [ -f /tmp/prerequisites.stdout ]
+          then
+            echo "DEPLOYMENT ALREADY ATTEMPTED -- $(date)" >> /tmp/OCP-startup-time
+          else
+            # Deploy OpenShift
+            echo "START PREREQ -- $(date)" >> /tmp/OCP-startup-time
+            ansible-playbook /usr/share/ansible/openshift-ansible/playbooks/prerequisites.yml >/tmp/prerequisites.stdout 2>/tmp/prerequisites.stderr
+            echo "START DEPLOY -- $(date)" >> /tmp/OCP-startup-time
+            ansible-playbook /usr/share/ansible/openshift-ansible/playbooks/deploy_cluster.yml >/tmp/deploy_cluster.stdout 2>/tmp/deploy_cluter.stderr
+            echo "START ACCESS -- $(date)" >> /tmp/OCP-startup-time
+            htpasswd -bc /etc/origin/master/htpasswd developer testdrive
+            oc adm policy add-cluster-role-to-user cluster-admin developer --config=/etc/origin/master/admin.kubeconfig echo "END DEPLOY -- $(date)" >> /tmp/OCP-startup-time
+            # Send that the config is finalized
+            gcloud beta runtime-config configs variables set success/success 'success' --config-name {{ configName }}
+            gcloud alpha deployment-manager runtime-configs variables set success/success 'success' --config-name {{ configName }} >> /tmp/OCP-startup-time
+          fi
+          echo "END SCRIPT -- $(date)" >> /tmp/OCP-startup-time
       - key: shutdown-script
         value: |
           #!/bin/bash
           # Set some variables
-          echo "START VARS -- $(date)" >> /tmp/OCP-stop-time
+          echo "START VARS -- $(date)" >> /tmp/OCP-shutdown-time
           export masterIP=$(curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip")
-          echo "masterIP $masterIP" >> /tmp/OCP-stop-time
-          export infraIP=$(ref.{{ vminfra }}.networkInterfaces[0].accessConfigs[0].natIP)
-          echo "infraIP $infraIP" >> /tmp/OCP-stop-time
+          echo "masterIP $masterIP" >> /tmp/OCP-shutdown-time
+          export infraIP=$(curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/attributes/infraIP)
+          echo "infraIP $infraIP" >> /tmp/OCP-shutdown-time
           export randomString=$(curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/attributes/randomString)
           export deploymentName=$(curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/attributes/deploymentName)
           export randomDnsName=$randomString${deploymentName: -3:3}
-          echo "randomDnsName $randomDnsName" >> /tmp/OCP-stop-time
+          echo "randomDnsName $randomDnsName" >> /tmp/OCP-shutdown-time
           export dnszone=gcp-testdrive-openshift-com
+          # Revert DNS to standard GCP so gcloud client works
+          echo "nameserver 169.254.169.254" > /etc/resolv.conf
           # Update DNS to remove this deployment
-          echo "START DNS -- $(date)" >> /tmp/OCP-stop-time
-          cd /tmp
-          gcloud --project='openshift-test-drive' dns record-sets transaction start -z=$dnszone
-          gcloud --project='openshift-test-drive' dns record-sets transaction remove -z=$dnszone --name="master.$randomDnsName.gcp.testdrive.openshift.com" --type=A --ttl=300 $masterIP
-          gcloud --project='openshift-test-drive' dns record-sets transaction remove -z=$dnszone --name="*.apps.$randomDnsName.gcp.testdrive.openshift.com" --type=A --ttl=300 $infraIP 
-          gcloud --project='openshift-test-drive' dns record-sets transaction execute -z=$dnszone >> /tmp/OCP-stop-time
-          echo "END SCRIPT -- $(date)" >> /tmp/OCP-stop-time
-          sleep 10
+          echo "START DNS -- $(date)" >> /tmp/OCP-shutdown-time
+          gcloud dns record-sets transaction start -z=$dnszone  2>> /tmp/OCP-shutdown-time
+          gcloud dns record-sets transaction remove -z=$dnszone --name="master.$randomDnsName.gcp.testdrive.openshift.com" --type=A --ttl=300 $masterIP 2>> /tmp/OCP-shutdown-time
+          gcloud dns record-sets transaction remove -z=$dnszone --name="*.apps.$randomDnsName.gcp.testdrive.openshift.com" --type=A --ttl=300 $infraIP 2>> /tmp/OCP-shutdown-time
+          gcloud dns record-sets transaction execute -z=$dnszone 2>> /tmp/OCP-shutdown-time
+          echo "END SCRIPT -- $(date)" >> /tmp/OCP-shutdown-time
     disks:
     - deviceName: boot
       type: PERSISTENT
