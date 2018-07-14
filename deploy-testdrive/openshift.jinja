@@ -269,10 +269,12 @@ resources:
           sed -i -e "s/MASTEREXTERNALIP/$masterIP/g" /etc/ansible/hosts
           # Update DNS to have this deployment
           echo "START DNS -- $(date)" >> /tmp/OCP-startup-time
-          gcloud dns record-sets transaction start -z=$dnszone
-          gcloud dns record-sets transaction add -z=$dnszone --name="master.$randomDnsName.gcp.testdrive.openshift.com" --type=A --ttl=300 $masterIP
-          gcloud dns record-sets transaction add -z=$dnszone --name="*.apps.$randomDnsName.gcp.testdrive.openshift.com" --type=A --ttl=300 $infraIP 
-          gcloud dns record-sets transaction execute -z=$dnszone
+          cd /tmp
+          rm -f transaction.yaml
+          gcloud dns record-sets transaction start -z=$dnszone 2>> /tmp/OCP-startup-time
+          gcloud dns record-sets transaction add -z=$dnszone --name="master.$randomDnsName.gcp.testdrive.openshift.com" --type=A --ttl=300 $masterIP 2>> /tmp/OCP-startup-time
+          gcloud dns record-sets transaction add -z=$dnszone --name="*.apps.$randomDnsName.gcp.testdrive.openshift.com" --type=A --ttl=300 $infraIP 2>> /tmp/OCP-startup-time
+          gcloud dns record-sets transaction execute -z=$dnszone 2>> /tmp/OCP-startup-time
           if [ -f /tmp/prerequisites.stdout ]
           then
             echo "DEPLOYMENT ALREADY ATTEMPTED -- $(date)" >> /tmp/OCP-startup-time
@@ -308,6 +310,8 @@ resources:
           echo "nameserver 169.254.169.254" > /etc/resolv.conf
           # Update DNS to remove this deployment
           echo "START DNS -- $(date)" >> /tmp/OCP-shutdown-time
+          cd /tmp
+          rm -f transaction.yaml
           gcloud dns record-sets transaction start -z=$dnszone  2>> /tmp/OCP-shutdown-time
           gcloud dns record-sets transaction remove -z=$dnszone --name="master.$randomDnsName.gcp.testdrive.openshift.com" --type=A --ttl=300 $masterIP 2>> /tmp/OCP-shutdown-time
           gcloud dns record-sets transaction remove -z=$dnszone --name="*.apps.$randomDnsName.gcp.testdrive.openshift.com" --type=A --ttl=300 $infraIP 2>> /tmp/OCP-shutdown-time
