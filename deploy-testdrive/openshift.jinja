@@ -289,9 +289,9 @@ resources:
             oc adm policy add-cluster-role-to-user cluster-admin developer --config=/etc/origin/master/admin.kubeconfig
             echo "END DEPLOY -- $(date)" >> /tmp/OCP-startup-time
             # Send that the config is finalized
-            gcloud beta runtime-config configs variables set success/success 'success' --config-name {{ configName }}
-            gcloud alpha deployment-manager runtime-configs variables set success/success 'success' --config-name {{ configName }} >> /tmp/OCP-startup-time
           fi
+          gcloud beta runtime-config configs variables set success/success 'success' --config-name {{ configName }}
+          gcloud alpha deployment-manager runtime-configs variables set success/success 'success' --config-name {{ configName }} >> /tmp/OCP-startup-time
           echo "END SCRIPT -- $(date)" >> /tmp/OCP-startup-time
       - key: shutdown-script
         value: |
