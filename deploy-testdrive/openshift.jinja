@@ -10,11 +10,13 @@
 {% set vmmaster = common.GenerateUniqueName( 'vm', env['deployment'], 'master' ) %}
 {% set vmnode1 = common.GenerateUniqueName( 'vm', env['deployment'], 'node1' ) %}
 {% set vmnode2 = common.GenerateUniqueName( 'vm', env['deployment'], 'node2' ) %}
+{% set vmnode3 = common.GenerateUniqueName( 'vm', env['deployment'], 'node3' ) %}
 
 {% set diskinfra = common.GenerateUniqueName( 'disk-docker', env['deployment'], 'infra' ) %}
 {% set diskmaster = common.GenerateUniqueName( 'disk-docker', env['deployment'], 'master' ) %}
 {% set disknode1 = common.GenerateUniqueName( 'disk-docker', env['deployment'], 'node1' ) %}
 {% set disknode2 = common.GenerateUniqueName( 'disk-docker', env['deployment'], 'node2' ) %}
+{% set disknode3 = common.GenerateUniqueName( 'disk-docker', env['deployment'], 'node3' ) %}
 
 {% set dnszone = 'gcp-testdrive-openshift-com' %}
 {% set configName = env["deployment"] + "-startup-config" %}
@@ -115,6 +117,13 @@ resources:
     type: https://www.googleapis.com/compute/v1/projects/{{ env["project"] }}/zones/{{ properties["zone"] }}/diskTypes/pd-ssd
     sourceImage: {{ properties["image-docker"] }}
 
+- name: {{ disknode3 }}
+  type: compute.v1.disk
+  properties:
+    zone: {{ properties["zone"] }}
+    type: https://www.googleapis.com/compute/v1/projects/{{ env["project"] }}/zones/{{ properties["zone"] }}/diskTypes/pd-ssd
+    sourceImage: {{ properties["image-docker"] }}
+
 {# DOCKER DISKS #}
 
 {# INSTANCES #}
@@ -139,7 +148,7 @@ resources:
     networkInterfaces:
     - network: $(ref.{{ network }}.selfLink)
       subnetwork: $(ref.{{ subnet0 }}.selfLink)
-      networkIP: 10.124.0.7
+      networkIP: 10.124.0.12
       accessConfigs:
       - name: External NAT
         type: ONE_TO_ONE_NAT
@@ -175,10 +184,16 @@ resources:
       type: PERSISTENT
       autoDelete: true
       source: $(ref.{{ disknode1 }}.selfLink)
+    - deviceName: node1-gfs
+      type: PERSISTENT
+      autoDelete: true
+      initializeParams:
+        sizeGb: 120
+        diskName: {{ common.GenerateUniqueName( 'disk', env['deployment'], 'node1-gfs' ) }}
     networkInterfaces:
     - network: $(ref.{{ network }}.selfLink)
       subnetwork: $(ref.{{ subnet0 }}.selfLink)
-      networkIP: 10.124.0.8
+      networkIP: 10.124.0.21
       accessConfigs:
       - name: External NAT
         type: ONE_TO_ONE_NAT
@@ -214,10 +229,61 @@ resources:
       type: PERSISTENT
       autoDelete: true
       source: $(ref.{{ disknode2 }}.selfLink)
+    - deviceName: node2-gfs
+      type: PERSISTENT
+      autoDelete: true
+      initializeParams:
+        sizeGb: 120
+        diskName: {{ common.GenerateUniqueName( 'disk', env['deployment'], 'node2-gfs' ) }}
     networkInterfaces:
     - network: $(ref.{{ network }}.selfLink)
       subnetwork: $(ref.{{ subnet0 }}.selfLink)
-      networkIP: 10.124.0.9
+      networkIP: 10.124.0.22
+      accessConfigs:
+      - name: External NAT
+        type: ONE_TO_ONE_NAT
+    tags:
+      items:
+        - 'testdrive-node'
+    serviceAccounts:
+    - email: default
+      scopes:
+        - 'https://www.googleapis.com/auth/compute'
+        - 'https://www.googleapis.com/auth/devstorage.read_only'
+        - 'https://www.googleapis.com/auth/logging.write'
+        - 'https://www.googleapis.com/auth/monitoring.write'
+        - 'https://www.googleapis.com/auth/servicecontrol'
+        - 'https://www.googleapis.com/auth/service.management'
+        - 'https://www.googleapis.com/auth/trace.append'
+        - 'https://www.googleapis.com/auth/userinfo.email'
+
+- name: {{ vmnode3 }}
+  type: compute.v1.instance
+  properties:
+    zone: {{ properties["zone"] }}
+    machineType: zones/{{ properties["zone"] }}/machineTypes/{{ properties['mtype'] }}
+    disks:
+    - deviceName: boot
+      type: PERSISTENT
+      boot: true
+      autoDelete: true
+      initializeParams:
+        diskName: {{ common.GenerateUniqueName( 'disk', env['deployment'], 'node3' ) }}
+        sourceImage: {{ properties["image-base"] }}
+    - deviceName: node3-docker
+      type: PERSISTENT
+      autoDelete: true
+      source: $(ref.{{ disknode3 }}.selfLink)
+    - deviceName: node3-gfs
+      type: PERSISTENT
+      autoDelete: true
+      initializeParams:
+        sizeGb: 120
+        diskName: {{ common.GenerateUniqueName( 'disk', env['deployment'], 'node3-gfs' ) }}
+    networkInterfaces:
+    - network: $(ref.{{ network }}.selfLink)
+      subnetwork: $(ref.{{ subnet0 }}.selfLink)
+      networkIP: 10.124.0.23
       accessConfigs:
       - name: External NAT
         type: ONE_TO_ONE_NAT
@@ -249,15 +315,33 @@ resources:
         value: {{ env["deployment"] }}
       - key: infraIP
         value: $(ref.{{ vminfra }}.networkInterfaces[0].accessConfigs[0].natIP)
+      - key: infraNode
+        value: {{ vminfra }}
+      - key: appNode1
+        value: {{ vmnode1 }}
+      - key: appNode2
+        value: {{ vmnode2 }}
+      - key: appNode3
+        value: {{ vmnode3 }}
       - key: startup-script
         value: |
           #!/bin/bash
           # Set some variables
           echo "START VARS -- $(date)" >> /tmp/OCP-startup-time
-          export masterIP=$(curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip")
           echo "masterIP $masterIP" >> /tmp/OCP-startup-time
           export infraIP=$(curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/attributes/infraIP)
           echo "infraIP $infraIP" >> /tmp/OCP-startup-time
+          export masterNode=$(curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/hostname")
+          echo "masterNode $masterNode" >> /tmp/OCP-startup-time
+          export masterIP=$(curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip")
+          export infraNode=$(curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/infraNode")
+          echo "infraNode $infraNode" >> /tmp/OCP-startup-time
+          export appNode1=$(curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/appNode1")
+          echo "appNode1 $appNode1" >> /tmp/OCP-startup-time
+          export appNode2=$(curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/appNode2")
+          echo "appNode2 $appNode2" >> /tmp/OCP-startup-time
+          export appNode3=$(curl -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/attributes/appNode3")
+          echo "appNode3 $appNode3" >> /tmp/OCP-startup-time
           export randomString=$(curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/attributes/randomString)
           export deploymentName=$(curl -s -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/attributes/deploymentName)
           export randomDnsName=$randomString${deploymentName: -3:3}
@@ -265,6 +349,11 @@ resources:
           export dnszone=gcp-testdrive-openshift-com
           echo "dnszone $dnszone" >> /tmp/OCP-startup-time
           # Update Ansible Hosts file with proper external names and IP
+          sed -i -e "s/MASTERNODE/$masterNode/g" /etc/ansible/hosts
+          sed -i -e "s/INFRANODE/$infraNode/g" /etc/ansible/hosts
+          sed -i -e "s/APPNODE1/$appNode1/g" /etc/ansible/hosts
+          sed -i -e "s/APPNODE2/$appNode2/g" /etc/ansible/hosts
+          sed -i -e "s/APPNODE3/$appNode3/g" /etc/ansible/hosts
           sed -i -e "s/DEPLOYMENTNAME/$randomDnsName/g" /etc/ansible/hosts
           sed -i -e "s/MASTEREXTERNALIP/$masterIP/g" /etc/ansible/hosts
           # Update DNS to have this deployment
@@ -283,7 +372,7 @@ resources:
             echo "START PREREQ -- $(date)" >> /tmp/OCP-startup-time
             ansible-playbook /usr/share/ansible/openshift-ansible/playbooks/prerequisites.yml >/tmp/prerequisites.stdout 2>/tmp/prerequisites.stderr
             echo "START DEPLOY -- $(date)" >> /tmp/OCP-startup-time
-            ansible-playbook /usr/share/ansible/openshift-ansible/playbooks/deploy_cluster.yml >/tmp/deploy_cluster.stdout 2>/tmp/deploy_cluter.stderr
+            ansible-playbook /usr/share/ansible/openshift-ansible/playbooks/deploy_cluster.yml >/tmp/deploy_cluster.stdout 2>/tmp/deploy_cluster.stderr
             echo "START ACCESS -- $(date)" >> /tmp/OCP-startup-time
             htpasswd -bc /etc/origin/master/htpasswd developer testdrive
             oc adm policy add-cluster-role-to-user cluster-admin developer --config=/etc/origin/master/admin.kubeconfig
@@ -333,7 +422,7 @@ resources:
     networkInterfaces:
     - network: $(ref.{{ network }}.selfLink)
       subnetwork: $(ref.{{ subnet0 }}.selfLink)
-      networkIP: 10.124.0.6
+      networkIP: 10.124.0.11
       accessConfigs:
       - name: External NAT
         type: ONE_TO_ONE_NAT
@@ -367,7 +456,7 @@ resources:
   properties:
     parent: $(ref.{{ configName }}.name)
     waiter: {{ waiterName }}
-    timeout: 1800s
+    timeout: 2400s
     success:
       cardinality:
         path: /success

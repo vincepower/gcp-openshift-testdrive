@@ -14,8 +14,8 @@ The image has
   - rhel-7-server-rpms
   - rhel-7-server-extras-rpms
   - rhel-7-fast-datapath-rpms
-  - rhel-7-server-ansible-2.4-rpms (or rhel-7-server-ansible-2.5-rpms)
-  - rhel-7-server-ose-3.9-rpms
+  - rhel-7-server-ansible-2.5-rpms (or rhel-7-server-ansible-2.6-rpms)
+  - rhel-7-server-ose-3.10-rpms
 * Be be deployed using an n1-standard-2 (2 vCPUs, 7.5 GB memory) Virtual Machine instance
 * Have two partitions
   - 500MB+ /boot
