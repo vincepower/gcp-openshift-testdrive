@@ -9,7 +9,7 @@ Two images are required for this to work. I used image families so I can iterate
 * ocp310-base
 * ocp310-docker (This is essential an empty disk with a volume group)
 
-The base image needs to have prepared by the prepare-base-image section.
+The base image needs to have prepared by the prepare-initial-images scripts/documentation.
 
 ## Run the deployment
 

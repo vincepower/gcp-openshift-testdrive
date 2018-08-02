@@ -6,7 +6,7 @@ The version really matters when setting the RHEL repositories.
 
 One image is required for this to work. I used image families so I can iterate without changing this script. This base image has all the prep work done to it already, except setting up storage, making sure the / disk is big enough, and subscribing to RHSM for entitlements.
 
-* rhel7ocp3
+* rhel7ocp310
 
 The image has 
 * RHEL 7.5 or higher 
@@ -21,8 +21,8 @@ The image has
   - 500MB+ /boot
   - 40GB+ / (root is only 3.5GB in the image)
 * The script will add the data disk needed to configure docker storage
-* And all the other steps and packages required by the OpenShift [Host Preparation Guide](https://docs.openshift.com/container-platform/3.10/install/host_preparation.html)
-
+* All the other steps and packages required by the OpenShift [Host Preparation Guide](https://docs.openshift.com/container-platform/3.10/install/host_preparation.html)
+* Bonus points for also including the ansible-hosts file references in the deploy-testdrive/README.md
 
 ## Deploy instances
 
