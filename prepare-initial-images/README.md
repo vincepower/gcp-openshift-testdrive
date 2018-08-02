@@ -21,6 +21,7 @@ The image has
   - 500MB+ /boot
   - 40GB+ / (root is only 3.5GB in the image)
 * The script will add the data disk needed to configure docker storage
+* And all the other steps and packages required by the OpenShift [Host Preparation Guide](https://docs.openshift.com/container-platform/3.10/install/host_preparation.html)
 
 
 ## Deploy instances

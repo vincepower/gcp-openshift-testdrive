@@ -9,20 +9,7 @@ Two images are required for this to work. I used image families so I can iterate
 * ocp310-base
 * ocp310-docker (This is essential an empty disk with a volume group)
 
-The base image will:
-* Run RHEL 7.5 or higher 
-* Be able to access the following RHEL repositories
-  - rhel-7-server-rpms
-  - rhel-7-server-extras-rpms
-  - rhel-7-fast-datapath-rpms
-  - rhel-7-server-ansible-2.5-rpms (or rhel-7-server-ansible-2.6-rpms)
-  - rhel-7-server-ose-3.10-rpms
-* Be be deployed using an n1-standard-4 (4 vCPUs, 15 GB memory) Virtual Machine instance
-* Have two partitions
-  - 500MB+ /boot
-  - 40GB+ / (root)
-  * The script will add the data disk needed to configure docker storage
-
+The base image needs to have prepared by the prepare-base-image section.
 
 ## Run the deployment
 
