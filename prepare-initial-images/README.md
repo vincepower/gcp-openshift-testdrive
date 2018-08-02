@@ -20,7 +20,7 @@ The image has
 * Have two partitions
   - 500MB+ /boot
   - 40GB+ / (root is only 3.5GB in the image)
-* The script will add the data disk needed to configure docker storage
+* Configure docker-storage using the second attached disk the template adds. (/root/run-all.sh might be useful)
 * All the other steps and packages required by the OpenShift [Host Preparation Guide](https://docs.openshift.com/container-platform/3.10/install/host_preparation.html)
 * Bonus points for also including the ansible-hosts file references in the deploy-testdrive/README.md
 
