@@ -11,6 +11,7 @@ export VERSION=v3.10.14
 
 ## Make go's home directory
 mkdir -p /root/go/bin
+echo "export GOPATH=/root/go" >> /root/.bashrc
 echo "export PATH=\$PATH:/root/go/bin" >> /root/.bashrc
 
 ## Starting docker daemon
