@@ -122,3 +122,7 @@ docker pull registry.access.redhat.com/rhscl/postgresql-95-rhel7
 docker pull registry.access.redhat.com/rhscl/python-35-rhel7
 docker pull registry.access.redhat.com/rhscl/ruby-24-rhel7
 
+## Cleanup yum
+yum clean all
+rm -f /var/cache/yum
+yum repolist
