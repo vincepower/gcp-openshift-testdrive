@@ -145,6 +145,12 @@ resources:
       type: PERSISTENT
       autoDelete: true
       source: $(ref.{{ diskinfra }}.selfLink)
+    - deviceName: infra-gfs
+      type: PERSISTENT
+      autoDelete: true
+      initializeParams:
+        sizeGb: 120
+        diskName: {{ common.GenerateUniqueName( 'disk', env['deployment'], 'infra-gfs' ) }}
     networkInterfaces:
     - network: $(ref.{{ network }}.selfLink)
       subnetwork: $(ref.{{ subnet0 }}.selfLink)
@@ -358,7 +364,7 @@ resources:
           sed -i -e "s/MASTEREXTERNALIP/$masterIP/g" /etc/ansible/hosts
           # Install Google Service Catalog and CFSSL apps
           echo "GO GET APPS -- $(date)" >> /tmp/OCP-startup-time
-          /bin/go get -u github.com/golang/dep/cmd/dep \
+          GOPATH=/root/go /bin/go get -u github.com/golang/dep/cmd/dep \
               github.com/GoogleCloudPlatform/k8s-service-catalog/installer/cmd/sc \
               github.com/cloudflare/cfssl/cmd/... >> /tmp/OCP-startup-time 2>&1
           # Update DNS to have this deployment
@@ -424,6 +430,12 @@ resources:
       type: PERSISTENT
       autoDelete: true
       source: $(ref.{{ diskmaster }}.selfLink)
+    - deviceName: master-gfs
+      type: PERSISTENT
+      autoDelete: true
+      initializeParams:
+        sizeGb: 120
+        diskName: {{ common.GenerateUniqueName( 'disk', env['deployment'], 'master-gfs' ) }}
     networkInterfaces:
     - network: $(ref.{{ network }}.selfLink)
       subnetwork: $(ref.{{ subnet0 }}.selfLink)

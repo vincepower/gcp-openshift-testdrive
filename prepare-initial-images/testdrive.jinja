@@ -71,7 +71,7 @@ resources:
   properties:
     zone: {{ properties["zone"] }}
     type: https://www.googleapis.com/compute/v1/projects/{{ env["project"] }}/zones/{{ properties["zone"] }}/diskTypes/pd-ssd
-    sizeGb: 80
+    sizeGb: 120
 
 {# DOCKER DISKS #}
 
@@ -87,7 +87,7 @@ resources:
       - key: startup-script
         value: |
           #!/bin/bash
-          gcloud -q compute disks resize --zone {{ properties["zone"] }} {{ diskbase }} --size 80
+          gcloud -q compute disks resize --zone {{ properties["zone"] }} {{ diskbase }} --size 60
     disks:
     - deviceName: boot
       type: PERSISTENT

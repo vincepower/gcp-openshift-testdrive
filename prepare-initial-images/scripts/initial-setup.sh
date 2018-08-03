@@ -8,6 +8,13 @@
 ## subscribed to RHSM or a Satelite Server.
 ##
 
+## Resizing base disk to 60GB requires growpart to be installed first
+# gcloud command is here for reference as it is run as part of the start-up script
+#gcloud -q compute disks resize --zone {{ properties["zone"] }} {{ diskbase }} --size 60
+yum install -y cloud-utils-growpart
+growpart /dev/sda 2 -u on
+xfs_growfs /dev/sda2
+
 ## Adding Google's Cloud repositories that will be used later
 echo "
 [google-cloud-compute]
@@ -34,19 +41,13 @@ yum install -y atomic-openshift-excluder atomic-openshift-docker-excluder
 atomic-openshift-excluder unexclude
 
 ## Installing required packages
-yum install -y google-cloud-sdk
+yum install -y google-cloud-sdk golang
 yum install -y wget git net-tools bind-utils yum-utils iptables-services bridge-utils
 yum install -y bash-completion kexec-tools sos psacct docker
-yum install -y cloud-utils-growpart ansible glusterfs-fuse
+yum install -y ansible glusterfs-fuse
 
 ## Updating all packages
 yum update -y
-
-## Resizing base disk to 80GB
-# gcloud command is here for reference as it is run as part of the start-up script
-#gcloud -q compute disks resize --zone {{ properties["zone"] }} {{ diskbase }} --size 60
-growpart /dev/sda 2 -u on
-xfs_growfs /dev/sda2
 
 ## Create ansible.cfg
 echo "# ansible.cfg
@@ -121,9 +122,9 @@ MASTERNODE
 
 [glusterfs]
 # General Storage
-APPNODE1 glusterfs_devices='["/dev/sdc"]'
-APPNODE2 glusterfs_devices='["/dev/sdc"]'
-APPNODE3 glusterfs_devices='["/dev/sdc"]'
+APPNODE1 glusterfs_devices='[\"/dev/sdc\"]'
+APPNODE2 glusterfs_devices='[\"/dev/sdc\"]'
+APPNODE3 glusterfs_devices='[\"/dev/sdc\"]'
 
 [etcd]
 MASTERNODE
@@ -176,8 +177,7 @@ systemctl restart sshd
 sleep 5
 
 ## Docker Storage Setup
-echo "STORAGE_DRIVER=overlay2
-DEVS=/dev/sdb
+echo "DEVS=/dev/sdb
 VG=docker-pool" > /etc/sysconfig/docker-storage-setup
 
 ## Run the setup

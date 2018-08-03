@@ -2,12 +2,12 @@
 ##
 ## RUN AS ROOT
 ##
-## Run this after setting up docker storage and registering with RHSM
-## Script to download all the OpenShift bits we'll ever need (hopefully)
+## Run this after setting up docker storage, registering with RHSM, 
+## and the other initial setup stuff
 ##
 
 ## Version of OpenShift
-VERSION=v3.10.14
+export VERSION=v3.10.14
 
 ## Make go's home directory
 mkdir -p /root/go/bin
@@ -18,6 +18,11 @@ systemctl start docker
 
 ## Installing OpenShift rpms
 yum install -y openshift-ansible* atomic* *-openshift-* google-cloud-sdk*
+
+## Cleanup yum
+yum clean all
+rm -f /var/cache/yum
+yum repolist
 
 ## Downloading all the containers
 docker pull registry.access.redhat.com/cloudforms46/cfme-httpd-configmap-generator
@@ -121,8 +126,3 @@ docker pull registry.access.redhat.com/rhscl/php-56-rhel7
 docker pull registry.access.redhat.com/rhscl/postgresql-95-rhel7
 docker pull registry.access.redhat.com/rhscl/python-35-rhel7
 docker pull registry.access.redhat.com/rhscl/ruby-24-rhel7
-
-## Cleanup yum
-yum clean all
-rm -f /var/cache/yum
-yum repolist
