@@ -41,7 +41,6 @@ yum install -y atomic-openshift-excluder atomic-openshift-docker-excluder
 atomic-openshift-excluder unexclude
 
 ## Installing required packages
-yum install -y google-cloud-sdk golang
 yum install -y wget git net-tools bind-utils yum-utils iptables-services bridge-utils
 yum install -y bash-completion kexec-tools sos psacct docker
 yum install -y ansible glusterfs-fuse

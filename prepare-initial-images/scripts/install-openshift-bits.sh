@@ -18,7 +18,7 @@ echo "export PATH=\$PATH:/root/go/bin" >> /root/.bashrc
 systemctl start docker
 
 ## Installing OpenShift rpms
-yum install -y openshift-ansible* atomic* *-openshift-* google-cloud-sdk*
+yum install -y openshift-ansible* atomic* *-openshift-* google-cloud-sdk* cockpit* golang
 
 ## Cleanup yum
 yum clean all

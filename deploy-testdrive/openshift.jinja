@@ -473,7 +473,7 @@ resources:
   properties:
     parent: $(ref.{{ configName }}.name)
     waiter: {{ waiterName }}
-    timeout: 2400s
+    timeout: 3000s
     success:
       cardinality:
         path: /success
