@@ -48,8 +48,10 @@ atomic-openshift-excluder unexclude
 ## Installing required packages
 yum install -y wget git net-tools bind-utils yum-utils iptables-services bridge-utils
 yum install -y bash-completion kexec-tools sos psacct docker golang
-yum install -y cloud-utils-growpart ansible glusterfs-fuse
+yum install -y cloud-init cloud-utils-growpart glusterfs-fuse
+yum install -y ansible
 yum install -y python-google-compute-engine google-compute-engine-oslogin google-compute-engine
+yum install -y google-cloud-sdk*
 
 ## Updating all packages
 yum update -y
@@ -219,6 +221,31 @@ yum repolist
 EOF
 chmod +x /root/get-redhat-repos.sh
 
+# Creating eth0 config file
+cat << EOF > /etc/sysconfig/network-scripts/ifcfg-eth0
+TYPE="Ethernet"
+BOOTPROTO="dhcp"
+DEFROUTE="yes"
+PEERDNS="yes"
+PEERROUTES="yes"
+IPV4_FAILURE_FATAL="no"
+IPV6INIT="no"
+NAME="eth0"
+DEVICE="eth0"
+ONBOOT="yes"
+EOF
+
+# Enabling cloud-init
+systemctl enable cloud-init
+
+# Sending some commands
+echo ""
+echo "You could unregister if you have a different ID for the cloud"
+echo "  subscription-manager unregister"
+echo ""
+echo "To erase command line history use:"
+echo "  export HISTSIZE=0"
+echo ""
 
 # End of script
 
