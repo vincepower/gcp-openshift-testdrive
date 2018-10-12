@@ -1,2 +1,2 @@
-# Google Cloud Platform OpenShift TestDrive for v3.10
-(v3.9 is a branch if you need the older version)
+# Google Cloud Platform OpenShift TestDrive for v3.11
+(v3.10 and v3.9 are branches if you need an older version)

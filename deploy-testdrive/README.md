@@ -17,7 +17,7 @@ The base image needs to have prepared by the prepare-initial-images scripts/docu
 gcloud deployment-manager deployments create --template install.jinja --async <deployment_name>
 ```
 
-This deployment takes 30 minutes and will install and configure a fresh install of OpenShift 3.10.14. Describe the deployment to get the output of the console URL, username, and password. GCP has a hard limit of 20 minutes waiting for an interactive response. (It does not install logging or metrics.)
+This deployment takes 30 minutes and will install and configure a fresh install of OpenShift 3.11. Describe the deployment to get the output of the console URL, username, and password. GCP has a hard limit of 20 minutes waiting for an interactive response. (It does not install logging or metrics.)
 
 For troubleshooting purposes, the deployment creates 6 files in the /tmp directory. The error ones aren't usually useful, but I'd rather have them than not.
 
@@ -113,7 +113,7 @@ The startup-script set in openshift.jinja replaces placeholders before running t
 ```
 [OSEv3:vars]
 # OpenShift version
-openshift_release=v3.10
+openshift_release=v3.11
 deployment_type=openshift-enterprise
 
 # Default console port (works best when they match)

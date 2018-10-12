@@ -5,18 +5,23 @@
 ## This script will take care of setting up ansible.cfg, ssh, and docker
 ##
 ## This script requires a golden image of RHEL to run on that is
-## subscribed to RHSM or a Satelite Server.
+## subscribed to RHSM or a Satelite Server and should be run before
+## uploading to GCP.
 ##
 
-## Resizing base disk to 60GB requires growpart to be installed first
-# gcloud command is here for reference as it is run as part of the start-up script
-#gcloud -q compute disks resize --zone {{ properties["zone"] }} {{ diskbase }} --size 60
-yum install -y cloud-utils-growpart
-growpart /dev/sda 2 -u on
-xfs_growfs /dev/sda2
+# Add correct repositories from RHSM
+subscription-manager repos --disable="*"
+
+subscription-manager repos \
+    --enable="rhel-7-server-rpms" \
+    --enable="rhel-7-server-extras-rpms" \
+    --enable="rhel-7-server-ose-3.10-rpms" \
+    --enable="rhel-7-server-ansible-2.5-rpms" \
+    --enable="rhel-7-fast-datapath-rpms" \
+    --enable="rh-gluster-3-client-for-rhel-7-server-rpms"
 
 ## Adding Google's Cloud repositories that will be used later
-echo "
+cat << EOF > /etc/yum.repos.d/google-cloud.repo
 [google-cloud-compute]
 name=Google Cloud Compute
 baseurl=https://packages.cloud.google.com/yum/repos/google-cloud-compute-el7-x86_64
@@ -34,7 +39,7 @@ gpgcheck=1
 repo_gpgcheck=1
 gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg
        https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-" > /etc/yum.repos.d/google-cloud.repo
+EOF
 
 ## Exposing exclusioned packages
 yum install -y atomic-openshift-excluder atomic-openshift-docker-excluder
@@ -42,8 +47,9 @@ atomic-openshift-excluder unexclude
 
 ## Installing required packages
 yum install -y wget git net-tools bind-utils yum-utils iptables-services bridge-utils
-yum install -y bash-completion kexec-tools sos psacct docker
-yum install -y ansible glusterfs-fuse
+yum install -y bash-completion kexec-tools sos psacct docker golang
+yum install -y cloud-utils-growpart ansible glusterfs-fuse
+yum install -y python-google-compute-engine google-compute-engine-oslogin google-compute-engine
 
 ## Updating all packages
 yum update -y
@@ -70,10 +76,10 @@ control_path = %(directory)s/%%h-%%r
 " > /etc/ansible/ansible.cfg
 
 ## Create ansible hosts
-echo "
+cat << EOF > /etc/ansible/hosts
 [OSEv3:vars]
 # OpenShift version
-openshift_release=v3.10
+openshift_release=v3.11
 deployment_type=openshift-enterprise
 
 # Default console port (works best when they match)
@@ -121,9 +127,9 @@ MASTERNODE
 
 [glusterfs]
 # General Storage
-APPNODE1 glusterfs_devices='[\"/dev/sdc\"]'
-APPNODE2 glusterfs_devices='[\"/dev/sdc\"]'
-APPNODE3 glusterfs_devices='[\"/dev/sdc\"]'
+APPNODE1 glusterfs_devices='["/dev/sdc"]'
+APPNODE2 glusterfs_devices='["/dev/sdc"]'
+APPNODE3 glusterfs_devices='["/dev/sdc"]'
 
 [etcd]
 MASTERNODE
@@ -134,10 +140,11 @@ INFRANODE openshift_node_group_name='node-config-infra'
 APPNODE1 openshift_node_group_name='node-config-compute'
 APPNODE2 openshift_node_group_name='node-config-compute'
 APPNODE3 openshift_node_group_name='node-config-compute'
-" > /etc/ansible/hosts
+EOF
 
 ## Create ssh_config
-echo "# ssh_config for OCP on GCP
+cat << EOF > /etc/ssh/ssh_config
+# ssh_config for OCP on GCP
 Host *
     Port 22
     Protocol 2
@@ -148,10 +155,11 @@ Host *
     Ciphers aes128-ctr,aes192-ctr,aes256-ctr,arcfour256,arcfour128,aes128-cbc,3des-cbc
     Tunnel no
     ServerAliveInterval 420
-" > /etc/ssh/ssh_config
+EOF
 
 ## Create sshd_config
-echo "# sshd_config for OCP on GCP
+cat << EOF > /etc/ssh/sshd_config
+# sshd_config for OCP on GCP
 HostKey /etc/ssh/ssh_host_rsa_key
 HostKey /etc/ssh/ssh_host_ecdsa_key
 HostKey /etc/ssh/ssh_host_ed25519_key
@@ -169,22 +177,48 @@ AcceptEnv LC_PAPER LC_NAME LC_ADDRESS LC_TELEPHONE LC_MEASUREMENT
 AcceptEnv LC_IDENTIFICATION LC_ALL LANGUAGE
 AcceptEnv XMODIFIERS
 Subsystem sftp  /usr/libexec/openssh/sftp-server
-" > /etc/ssh/sshd_config
+EOF
 
 ## Restart ssh daemon and wait for a few seconds before continuing
 systemctl restart sshd
 sleep 5
 
 ## Docker Storage Setup
-echo "DEVS=/dev/sdb
-VG=docker-pool" > /etc/sysconfig/docker-storage-setup
+cat << EOF > /etc/sysconfig/docker-storage-setup
+DEVS=/dev/sdb
+VG=docker-pool
+EOF
 
-## Run the setup
-docker-storage-setup
+## Make go's home directory
+mkdir -p /root/go/bin
+echo "export GOPATH=/root/go" >> /root/.bashrc
+echo "export PATH=\$PATH:/root/go/bin" >> /root/.bashrc
 
-## Enable Docker Service
-systemctl enable docker
+# Updating GRUB as per GCP's recommendations
+cat << EOF > /etc/default/grub
+GRUB_TIMEOUT=5
+GRUB_DISTRIBUTOR="$(sed 's, release .*$,,g' /etc/system-release)"
+GRUB_DEFAULT=saved
+GRUB_DISABLE_SUBMENU=true
+GRUB_TERMINAL_OUTPUT="console"
+GRUB_CMDLINE_LINUX="rootdelay=300 console=tty0 console=ttyS0,38400n8d net.ifnames=0"
+GRUB_DISABLE_RECOVERY="true"
+EOF
+sudo grub-mkconfig -o /boot/grub/grub.cfg
 
-## Start Docker Service
-systemctl start docker
+# Creating script that can be used during an offline install
+cat << EOF > /root/get-redhat-repos.sh
+#!/bin/bash
+echo "====================================="
+# Cleaning up yum for a fresh start
+yum clean all
+# Getting offline repo server
+curl -o /etc/yum.repos.d/rhel7ocp311.repo http://repo.server/rhel7ocp310.repo
+# Refreshing repository caches
+yum repolist
+EOF
+chmod +x /root/get-redhat-repos.sh
+
+
+# End of script
 

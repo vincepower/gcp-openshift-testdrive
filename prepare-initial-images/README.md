@@ -6,7 +6,7 @@ The version really matters when setting the RHEL repositories.
 
 One image is required for this to work. I used image families so I can iterate without changing this script. This base image has all the prep work done to it already, except setting up storage, making sure the / disk is big enough, and subscribing to RHSM for entitlements.
 
-* rhel7ocp310
+* rhel7ocp311
 
 The image has 
 * RHEL 7.5 or higher 
@@ -14,14 +14,14 @@ The image has
   - rhel-7-server-rpms
   - rhel-7-server-extras-rpms
   - rhel-7-fast-datapath-rpms
-  - rhel-7-server-ansible-2.5-rpms (or rhel-7-server-ansible-2.6-rpms)
-  - rhel-7-server-ose-3.10-rpms
+  - rhel-7-server-ansible-2.6-rpms
+  - rhel-7-server-ose-3.11-rpms
 * Be be deployed using an n1-standard-2 (2 vCPUs, 7.5 GB memory) Virtual Machine instance
 * Have two partitions
   - 500MB+ /boot
   - 40GB+ / (root is only 3.5GB in the image)
 * Configure docker-storage using the second attached disk the template adds. (/root/run-all.sh might be useful)
-* All the other steps and packages required by the OpenShift [Host Preparation Guide](https://docs.openshift.com/container-platform/3.10/install/host_preparation.html)
+* All the other steps and packages required by the OpenShift [Host Preparation Guide](https://docs.openshift.com/container-platform/3.11/install/host_preparation.html)
 * Bonus points for also including the ansible-hosts file references in the deploy-testdrive/README.md
 
 ## Deploy instances
