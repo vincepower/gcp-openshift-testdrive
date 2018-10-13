@@ -205,6 +205,12 @@ DEVS=/dev/sdb
 VG=docker-pool
 EOF
 
+## Making a shared ssh key
+mkdir /root/.ssh
+chmod 0755 /root/.ssh
+ssh-keygen -q -t rsa -P "" -f  -f /root/.ssh/id_rsa
+cp /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys
+
 ## Make go's home directory
 echo "Creating the golang config"
 mkdir -p /root/go/bin
