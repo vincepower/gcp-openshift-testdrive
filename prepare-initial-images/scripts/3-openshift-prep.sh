@@ -35,6 +35,6 @@ yum update -y
 
 ## Cleanup yum
 yum clean all
-rm -f /var/cache/yum
+rm -rf /var/cache/yum
 yum repolist
 
