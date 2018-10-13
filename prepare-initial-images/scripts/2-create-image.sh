@@ -29,7 +29,7 @@ echo "== Uploading the disk"
 gsutil cp /tmp/compressed-image.tar.gz gs://$GCPSTORAGE && rm -f /tmp/compressed-image.tar.gz
 
 echo "== Creating the image"
-gcloud compute images create rhel7ocp311-v$1 --description="RHEL 7.5 Image for OCP 3.11 (Cloud Access)" --family=rhel7ocp311 --source-uri=gs://$GCPSTORAGE /compressed-image.tar.gz
+gcloud compute images create rhel7ocp311-v$1 --description="RHEL 7.5 Image for OCP 3.11 (Cloud Access)" --family=rhel7ocp311 --source-uri=gs://$GCPSTORAGE/compressed-image.tar.gz
 
 echo "== Final clean-up"
 rm -f disk.raw /tmp/compressed-image.tar.gz
