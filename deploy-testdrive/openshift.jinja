@@ -363,7 +363,7 @@ resources:
           sed -i -e "s/DEPLOYMENTNAME/$randomDnsName/g" /etc/ansible/hosts
           sed -i -e "s/MASTEREXTERNALIP/$masterIP/g" /etc/ansible/hosts
           # Install Google Service Catalog and CFSSL apps
-          echo "GO GET APPS -- $(date)" >> /tmp/OCP-startup-time
+          echo "GET GOLANG APPS -- $(date)" >> /tmp/OCP-startup-time
           GOPATH=/root/go /bin/go get -u github.com/golang/dep/cmd/dep \
               github.com/GoogleCloudPlatform/k8s-service-catalog/installer/cmd/sc \
               github.com/cloudflare/cfssl/cmd/... >> /tmp/OCP-startup-time 2>&1
@@ -387,6 +387,11 @@ resources:
             echo "START ACCESS -- $(date)" >> /tmp/OCP-startup-time
             htpasswd -bc /etc/origin/master/htpasswd developer testdrive
             oc adm policy add-cluster-role-to-user cluster-admin developer --rolebinding-name=cluster-admin --config=/etc/origin/master/admin.kubeconfig
+            # Install Google Service Catalog
+            echo "Install Google Service Catalog -- $(date)" >> /tmp/OCP-startup-time
+            sc check
+            sc install
+            sc add-gcp-broker
             echo "END DEPLOY -- $(date)" >> /tmp/OCP-startup-time
             # Send that the config is finalized
           fi

@@ -12,6 +12,11 @@
 ## curl -o run.sh https://bit.ly/2REXak9
 ## 
 
+#
+echo "Make sure you are subscribed, then edit this"
+echo "file and remove the 'exit' on the next line."
+exit
+
 # Add correct repositories from RHSM
 echo "Disabling all repositories not required"
 subscription-manager repos --disable="*"
