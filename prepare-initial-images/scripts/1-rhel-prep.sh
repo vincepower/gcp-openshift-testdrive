@@ -8,6 +8,9 @@
 ## subscribed to RHSM or a Satelite Server and should be run before
 ## uploading to GCP.
 ##
+## This script has a short URL to make it easier to download in the VM
+## curl -o run.sh https://bit.ly/2REXak9
+## 
 
 # Add correct repositories from RHSM
 subscription-manager repos --disable="*"
