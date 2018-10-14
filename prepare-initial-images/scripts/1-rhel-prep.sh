@@ -268,9 +268,11 @@ DEVICE="eth0"
 ONBOOT="yes"
 EOF
 
-# Enabling cloud-init
-echo "Enabling cloud-init"
-systemctl enable cloud-init
+# Downloading jq (as per Google's request)
+echo "Downloading jq"
+wget https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64
+mv jq-linux64 /bin/jq
+chmod 755 /bin/jq
 
 # Installing Google Utilities
 yum install -y python-google-compute-engine google-compute-engine-oslogin google-compute-engine
