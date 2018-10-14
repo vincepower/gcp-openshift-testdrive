@@ -9,7 +9,9 @@
 ## uploading to GCP.
 ##
 ## This script has a short URL to make it easier to download in the VM
-## curl -o run.sh https://bit.ly/2REXak9
+## $ curl -o tmp.txt https://bit.ly/2REXak9
+## Then edit tmp.txt to remove all the HTML around the URL
+## $ curl -o run.sh `cat tmp.txt`
 ## 
 
 #
@@ -213,7 +215,7 @@ EOF
 ## Making a shared ssh key
 mkdir /root/.ssh
 chmod 0755 /root/.ssh
-ssh-keygen -q -t rsa -P "" -f  -f /root/.ssh/id_rsa
+ssh-keygen -q -t rsa -P "" -f /root/.ssh/id_rsa
 cp /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys
 
 ## Make go's home directory
