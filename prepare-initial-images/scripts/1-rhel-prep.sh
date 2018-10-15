@@ -62,7 +62,7 @@ atomic-openshift-excluder unexclude
 ## Installing required packages
 echo "Installing prereqs"
 yum install -y wget git net-tools bind-utils yum-utils iptables-services bridge-utils
-yum install -y bash-completion kexec-tools sos psacct docker
+yum install -y bash-completion kexec-tools sos psacct docker ntp
 yum install -y cloud-init cloud-utils-growpart 
 yum install -y ansible glusterfs-fuse
 
@@ -213,6 +213,7 @@ VG=docker-pool
 EOF
 
 ## Making a shared ssh key
+echo "Making ssh key"
 mkdir /root/.ssh
 chmod 0755 /root/.ssh
 ssh-keygen -q -t rsa -P "" -f /root/.ssh/id_rsa
@@ -238,6 +239,7 @@ EOF
 sudo grub2-mkconfig -o /boot/grub2/grub.cfg
 
 # Creating script that can be used during an offline install
+echo "Creating skelaton script for use to work offline"
 cat << EOF > /root/get-redhat-repos.sh
 #!/bin/bash
 
@@ -252,11 +254,11 @@ curl -o /etc/yum.repos.d/rhel7ocp311.repo http://repo.server/rhel7ocp311.repo
 
 # Refreshing repository caches
 yum repolist
-
 EOF
 chmod +x /root/get-redhat-repos.sh
 
 # Creating eth0 config file
+echo "Creating eth0 config file"
 cat << EOF > /etc/sysconfig/network-scripts/ifcfg-eth0
 TYPE="Ethernet"
 BOOTPROTO="dhcp"
@@ -276,7 +278,25 @@ wget https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64
 mv jq-linux64 /bin/jq
 chmod 755 /bin/jq
 
+# Enabling and configuring ntp
+echo "Enabling ntp"
+cat << EOF > /etc/ntp.conf
+driftfile /var/lib/ntp/drift
+restrict default nomodify notrap nopeer noquery
+restrict 127.0.0.1
+restrict ::1
+server 0.north-america.pool.ntp.org
+server 1.north-america.pool.ntp.org
+server 2.north-america.pool.ntp.org
+server 3.north-america.pool.ntp.org
+includefile /etc/ntp/crypto/pw
+keys /etc/ntp/keys
+disable monitor
+EOF
+systemctl enable ntpd
+
 # Installing Google Utilities
+echo "Installing Google Utilities"
 yum install -y python-google-compute-engine google-compute-engine-oslogin google-compute-engine
 yum install -y golang google-cloud-sdk
 
